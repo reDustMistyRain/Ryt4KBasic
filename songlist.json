@@ -1,0 +1,26 @@
+[
+    {
+      "id": "MarbleBlue.",
+      "title": "MarbleBlue",
+      "artist": "MisoilePunch",
+      "chartPath": "songs/MarbleBlue/chart.json",
+      "audioPath": "songs/MarbleBlue/song.mp3",
+      "illustrationPath": "songs/MarbleBlue/illu.png"
+    },
+    {
+      "id": "Altale",
+      "title": "Altale",
+      "artist": "Sakuzyo",
+      "chartPath": "songs/Altale/chart.json",
+      "audioPath": "songs/Altale/song.mp3",
+      "illustrationPath": "songs/Altale/illu.png"
+    },
+    {
+      "id": "enchanted love",
+      "title": "enchanted love",
+      "artist": "linear ring",
+      "chartPath": "songs/enchanted love/chart.json",
+      "audioPath": "songs/enchanted love/song.mp3",
+      "illustrationPath": "songs/enchanted love/illu.png"
+    }
+  ]

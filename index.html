@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>RytBasic</title>
+    <!-- 引入 Google Font 'IBM Plex Mono' -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* CSS 樣式 */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000; /* Fallback background */
+            color: white;
+            /* 應用字體 */
+            font-family: 'IBM Plex Mono', monospace;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        .hidden { display: none !important; }
+        #app-container { position: relative; width: 100%; height: 100%; }
+        #gameCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; border: none; background-color: transparent; z-index: 1; }
+
+        /* 疊加畫面基礎樣式 */
+        .overlay-screen { position: absolute; inset: 0; display: flex; opacity: 0; transition: opacity 0.5s ease-in-out; pointer-events: none; z-index: 5; background-color: rgba(0, 0, 0, 0.7); align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; overflow: auto; }
+        .overlay-screen.visible { opacity: 1; pointer-events: auto; }
+        #song-select-screen:not(.hidden) { opacity: 1; pointer-events: auto; background-color: rgba(0, 0, 0, 0.85); flex-direction: column; }
+
+        /* 選曲畫面 */
+        #song-select-screen { position: relative; }
+        #song-select-screen h2 { margin-top: 0; margin-bottom: 25px; color: #eee; font-weight: 700; }
+        #song-list-container { width: 90%; max-width: 600px; max-height: calc(70vh - 100px); overflow-y: auto; display: flex; flex-direction: column; gap: 15px; margin-top: 20px; scrollbar-width: thin; scrollbar-color: #555 #333; }
+        #song-list-container::-webkit-scrollbar { width: 8px; }
+        #song-list-container::-webkit-scrollbar-track { background: #333; border-radius: 4px; }
+        #song-list-container::-webkit-scrollbar-thumb { background-color: #555; border-radius: 4px; border: 2px solid #333; }
+        .song-item { background-color: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.2); padding: 12px 15px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 15px; transition: background-color 0.2s, transform 0.1s; color: inherit; text-decoration: none;}
+        .song-item:hover { background-color: rgba(255, 255, 255, 0.15); transform: scale(1.02); }
+        .song-illustration { width: 70px; height: 70px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+        .song-details { text-align: left; flex-grow: 1; overflow: hidden; }
+        .song-title { font-size: 1.15em; font-weight: 700; margin: 0 0 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .song-artist { font-size: 0.85em; color: #bbb; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #speed-control { position: absolute; bottom: 20px; right: 20px; display: flex; align-items: center; background-color: rgba(255, 255, 255, 0.1); padding: 8px 12px; border-radius: 5px; z-index: 10; }
+        #speed-control button { background-color: #555; color: white; border: none; padding: 5px 10px; font-size: 16px; cursor: pointer; border-radius: 3px; margin: 0 5px; transition: background-color 0.2s; font-family: inherit; }
+        #speed-control button:hover { background-color: #777; }
+        #speed-display { font-size: 16px; font-weight: 700; min-width: 50px; text-align: center; }
+
+        /* Intro 畫面 */
+        #intro-screen { justify-content: flex-start; align-items: flex-end; padding: 30px; background-color: rgba(0, 0, 0, 0.7); }
+        #intro-illustration { width: 150px; height: 150px; object-fit: cover; margin-right: 25px; border: 2px solid rgba(255, 255, 255, 0.5); border-radius: 5px; }
+        #intro-text { display: flex; flex-direction: column; justify-content: flex-end; }
+        #intro-title { font-size: 40pt; font-weight: 700; color: #ffffff; margin: 0 0 5px 0; text-shadow: 2px 2px 5px rgba(0,0,0,0.7); }
+        #intro-artist { font-size: 20pt; color: #dddddd; margin: 0; text-shadow: 1px 1px 3px rgba(0,0,0,0.7); }
+
+        /* 結算畫面 */
+        #result-screen { padding: 0; align-items: initial; justify-content: initial; background-color: rgba(0, 0, 0, 0.85); }
+        #result-header { position: absolute; top: 30px; left: 30px; text-align: left; }
+        #result-title { font-size: 60pt; font-weight: 700; margin: 0 0 5px 0; color: #fff; }
+        #result-artist { font-size: 40pt; margin: 0; color: #ddd; }
+        #result-illustration { position: absolute; top: 30px; right: 30px; width: 600px; height: 600px; object-fit: cover; border: 2px solid #555; border-radius: 5px; }
+        /* *** 修改：調整 bottom 使整體下移 *** */
+        #result-judgments {
+            position: absolute;
+            bottom: 10px;       /* 從 40px 改為 30px */
+            left: 40px;
+            text-align: left;
+            font-size: 24pt;
+            line-height: 1.7;
+        }
+        #result-judgments span { font-weight: 700; display: inline-block; min-width: 65px; text-align: right; margin-left: 15px; }
+        #result-perfect { color: #FFD700; } #result-great { color: #90EE90; } #result-good { color: #ADD8E6; } #result-miss { color: #FF6347; } #result-max-combo { color: #FFFFA0; }
+        #result-judgments p:last-child {
+            margin-top: 25px;
+            text-align: left;
+        }
+        #result-score {
+            font-size: 60pt; /* 保持 60pt */
+            color: #FFFFA0;
+            font-weight: 700;
+            display: block;
+            margin-left: 0;
+            text-align: left;
+            min-width: auto;
+        }
+        #back-to-select-button {
+            position: absolute;
+            bottom: 45px; /* 保持不變 */
+            right: 40px;
+            font-size: 36pt;
+            font-weight: 700;
+            color: #ffffff;
+            text-decoration: none;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 5px;
+            transition: color 0.2s;
+            font-family: inherit;
+        }
+        #back-to-select-button:hover {
+            color: #cccccc;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <canvas id="gameCanvas" class="hidden"></canvas>
+        <!-- Overlay screens -->
+        <div id="song-select-screen" class="overlay-screen hidden">
+            <div style="width: 100%; max-width: 600px; text-align: center;">
+                <h2>選擇歌曲</h2>
+                <div id="song-list-container"> <p>正在載入歌曲列表...</p> </div>
+            </div>
+            <div id="speed-control">
+                <button id="decrease-speed">-</button>
+                <span id="speed-display">x1.0</span>
+                <button id="increase-speed">+</button>
+            </div>
+        </div>
+        <div id="intro-screen" class="overlay-screen hidden">
+            <img id="intro-illustration" src="" alt="Song Illustration">
+            <div id="intro-text">
+                <h3 id="intro-title">歌曲標題</h3>
+                <p id="intro-artist">作曲家</p>
+            </div>
+        </div>
+        <div id="result-screen" class="overlay-screen hidden">
+            <div id="result-header">
+                <p id="result-title">歌曲標題</p>
+                <p id="result-artist">作曲家</p>
+            </div>
+            <img id="result-illustration" src="" alt="Song Illustration">
+            <div id="result-judgments">
+                <p>Perfect:<span id="result-perfect">0</span></p>
+                <p>Great:<span id="result-great">0</span></p>
+                <p>Good:<span id="result-good">0</span></p>
+                <p>Miss:<span id="result-miss">0</span></p>
+                <p>Max Combo:<span id="result-max-combo">0</span></p>
+                <p><span id="result-score">0</span></p>
+            </div>
+            <span id="back-to-select-button" class="text-button">返回選單</span>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
