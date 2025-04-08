@@ -6,8 +6,8 @@
     "difficulty_name": "轉換",
     "difficulty_level": 0,
     "audio_filename": "test.mp3",
-    "preview_start_time": 1500,
-    "global_offset_ms": 700
+    "preview_start_time": 1600,
+    "global_offset_ms": 900
   },
   "timing_points": [
     {
