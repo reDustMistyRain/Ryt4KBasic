@@ -40,10 +40,16 @@ let gameStartDelayTimeoutId = null; // Stores the timeout ID for the game start 
 // =============================================================================
 // 遊戲核心參數與設定
 // =============================================================================
-const LANE_COUNT = 4; let JUDGMENT_LINE_Y = 0; let PERSPECTIVE_STRENGTH = 0.8;
-let TOP_TOTAL_WIDTH = 0; let TOP_OFFSET_X = 0; let BOTTOM_LANE_WIDTH = 0; let TOP_LANE_WIDTH = 0;
-const START_DELAY_SECONDS = 0.1; // Delay before *music* starts after scheduled time
+const LANE_COUNT = 4; 
+let JUDGMENT_LINE_Y = 0; 
+let PERSPECTIVE_STRENGTH = 0.8;
+let TOP_TOTAL_WIDTH = 0; 
+let TOP_OFFSET_X = 0; 
+let BOTTOM_LANE_WIDTH = 0; 
+let TOP_LANE_WIDTH = 0;
+const START_DELAY_SECONDS = 1.1; // Delay before *music* starts after scheduled time (增加到1.1秒讓音樂晚1秒開始)
 const INTRO_TO_GAME_DELAY_SECONDS = 2.0; // Delay after intro fades out before game starts
+const ADDITIONAL_NOTE_OFFSET_SECONDS = 1.0; // 額外的音符提前出現時間偏移量 (讓音符提前1秒出現)
 const BASE_NOTE_APPEAR_TIME_OFFSET = 2.0;
 let speedMultiplier = 1.0;
 let noteAppearTimeOffset = BASE_NOTE_APPEAR_TIME_OFFSET / speedMultiplier;
@@ -61,22 +67,32 @@ const FONT_FAMILY_CANVAS = "'IBM Plex Mono', monospace";
 // =============================================================================
 // 顏色定義
 // =============================================================================
-const COLOR_BACKGROUND = '#000000'; // Fallback background
-const COLOR_LINES = '#FFFFFF'; const COLOR_LANE_SEPARATOR = '#CCCCCC';
-const COLOR_JUDGMENT_LINE = '#FFFFFF'; // Judgment line is white
-const COLOR_NOTE = '#CCFFFF'; // Notes are whitish-cyan
-const COLOR_PERFECT_PARTICLE = 'rgba(255, 215, 0,'; // Gold/Yellow
-const COLOR_GREAT_PARTICLE = 'rgba(144, 238, 144,'; // LightGreen
-const COLOR_GOOD_PARTICLE = 'rgba(173, 216, 230,'; // LightBlue
-const COLOR_LANE_FLASH = 'rgba(173, 216, 230,'; // Lane flash is LightBlue
-const COLOR_RING_EFFECT = 'rgba(255, 255, 255,'; // Ring effect is white
+const COLOR_BACKGROUND = '#000000';           // 預設背景色
+const COLOR_LINES = '#FFFFFF';                // 邊界線顏色
+const COLOR_LANE_SEPARATOR = '#CCCCCC';       // 軌道分隔線顏色
+const COLOR_JUDGMENT_LINE = '#FFFFFF';        // 判定線顏色
+const COLOR_NOTE = '#CCFFFF';                 // 音符顏色 (白青色)
+const COLOR_PERFECT_PARTICLE = 'rgba(255, 215, 0,';  // Perfect 特效顏色 (金黃色)
+const COLOR_GREAT_PARTICLE = 'rgba(144, 238, 144,';  // Great 特效顏色 (淺綠色)
+const COLOR_GOOD_PARTICLE = 'rgba(173, 216, 230,';   // Good 特效顏色 (淺藍色)
+const COLOR_LANE_FLASH = 'rgba(173, 216, 230,';      // 軌道閃光顏色 (淺藍色)
+const COLOR_RING_EFFECT = 'rgba(255, 255, 255,';     // 環形特效顏色 (白色)
 
 // =============================================================================
 // 判定與計分系統 (1 Million Score System)
 // =============================================================================
-const JUDGE_WINDOW_PERFECT = 0.100; const JUDGE_WINDOW_GREAT = 0.200; const JUDGE_WINDOW_GOOD = 0.300; const JUDGE_WINDOW_MISS = 0.400;
-let lastJudgment = { text: '', time: 0, column: -1 }; const JUDGMENT_DISPLAY_DURATION = 0.5;
-let score = 0; let combo = 0; let maxCombo = 0;
+// 判定時間窗口 (單位：秒)
+const JUDGE_WINDOW_PERFECT = 0.100; 
+const JUDGE_WINDOW_GREAT = 0.200; 
+const JUDGE_WINDOW_GOOD = 0.300; 
+const JUDGE_WINDOW_MISS = 0.400;
+const JUDGMENT_DISPLAY_DURATION = 0.5;
+
+// 判定與分數相關變數
+let lastJudgment = { text: '', time: 0, column: -1 }; 
+let score = 0; 
+let combo = 0; 
+let maxCombo = 0;
 const MAX_SCORE = 1000000;
 let totalNotesInChart = 0; let baseScorePerPerfect = 0;
 let judgmentCounts = { perfect: 0, great: 0, good: 0, miss: 0 };
@@ -84,10 +100,22 @@ let judgmentCounts = { perfect: 0, great: 0, good: 0, miss: 0 };
 // =============================================================================
 // 按鍵與音訊狀態
 // =============================================================================
-const KEY_MAPPINGS = ['KeyD', 'KeyF', 'KeyJ', 'KeyK']; const keyStates = {'KeyD': false, 'KeyF': false, 'KeyJ': false, 'KeyK': false};
-const AudioContext = window.AudioContext || window.webkitAudioContext; let audioContext; let audioBuffer = null; let audioSource = null;
-let audioStartTime = 0; let currentSongTime = 0; let rawElapsedTime = -START_DELAY_SECONDS;
-let isAudioLoading = false; let isAudioReady = false; let isPlaying = false; let gameLoopRunning = false;
+// 按鍵映射與狀態
+const KEY_MAPPINGS = ['KeyD', 'KeyF', 'KeyJ', 'KeyK']; 
+const keyStates = {'KeyD': false, 'KeyF': false, 'KeyJ': false, 'KeyK': false};
+
+// 音訊相關變數
+const AudioContext = window.AudioContext || window.webkitAudioContext; 
+let audioContext; 
+let audioBuffer = null; 
+let audioSource = null;
+let audioStartTime = 0; 
+let currentSongTime = 0; 
+let rawElapsedTime = -START_DELAY_SECONDS;
+let isAudioLoading = false; 
+let isAudioReady = false; 
+let isPlaying = false; 
+let gameLoopRunning = false;
 
 // Keysound
 let keysoundBuffer = null; let isKeysoundLoading = false; let isKeysoundReady = false;
@@ -145,9 +173,130 @@ function initializeGameState() {
 // =============================================================================
 // 輔助函式
 // =============================================================================
-function getInterpolatedX(boundaryIndex, y) { if (BOTTOM_LANE_WIDTH === undefined || TOP_LANE_WIDTH === undefined || TOP_OFFSET_X === undefined || canvas.height <= 0) return 0; const bottomX = boundaryIndex * BOTTOM_LANE_WIDTH; const topX = TOP_OFFSET_X + (boundaryIndex * TOP_LANE_WIDTH); const clampedY = Math.max(0, Math.min(canvas.height, y)); const ratio = canvas.height > 0 ? (clampedY / canvas.height) : 0; return topX + (bottomX - topX) * ratio; }
-function resizeCanvas() { const displayWidth = window.innerWidth; const displayHeight = window.innerHeight; if (Math.abs(canvas.width - displayWidth) > 1 || Math.abs(canvas.height - displayHeight) > 1) { canvas.width = displayWidth; canvas.height = displayHeight; console.log(`Canvas resized to: ${canvas.width} x ${canvas.height}`); JUDGMENT_LINE_Y = canvas.height * 0.85; TOP_TOTAL_WIDTH = canvas.width * (1 - PERSPECTIVE_STRENGTH); TOP_OFFSET_X = (canvas.width - TOP_TOTAL_WIDTH) / 2; BOTTOM_LANE_WIDTH = canvas.width / LANE_COUNT; TOP_LANE_WIDTH = TOP_TOTAL_WIDTH / LANE_COUNT; NOTE_HEIGHT = Math.max(10, Math.round(canvas.height * NOTE_HEIGHT_RATIO)); console.log(`重新計算參數: 判定線 Y=${JUDGMENT_LINE_Y.toFixed(0)}, 音符高度=${NOTE_HEIGHT}`); if (!gameLoopRunning && ctx && gameState !== 'LOADING' && gameState !== 'INITIALIZING' && gameState !== 'SELECTING' && gameState !== 'SPLASH') { drawGameBackground(); } } }
-function drawGameBackground() { if (!ctx) return; ctx.clearRect(0, 0, canvas.width, canvas.height); if (isSongBgReady && songBgImage) { ctx.filter = `blur(${BACKGROUND_BLUR_AMOUNT}px)`; const canvasAspect = canvas.width / canvas.height; const bgAspect = songBgImage.naturalWidth / songBgImage.naturalHeight; let drawWidth, drawHeight, offsetX = 0, offsetY = 0; if (bgAspect > canvasAspect) { drawHeight = canvas.height; drawWidth = drawHeight * bgAspect; offsetX = (canvas.width - drawWidth) / 2; } else { drawWidth = canvas.width; drawHeight = drawWidth / bgAspect; offsetY = (canvas.height - drawHeight) / 2; } try { ctx.drawImage(songBgImage, offsetX, offsetY, drawWidth, drawHeight); } catch (e) { console.error("繪製背景圖時出錯:", e); isSongBgReady = false; songBgImage = null; ctx.fillStyle = COLOR_BACKGROUND; ctx.fillRect(0, 0, canvas.width, canvas.height); } ctx.filter = 'none'; ctx.fillStyle = `rgba(0, 0, 0, ${BACKGROUND_DIM_ALPHA})`; ctx.fillRect(0, 0, canvas.width, canvas.height); } else { ctx.fillStyle = COLOR_BACKGROUND; ctx.fillRect(0, 0, canvas.width, canvas.height); if (!isSongBgLoading && !isSongBgReady && selectedSongData?.illustrationPath && (gameState === 'LOADING' || gameState === 'GAME' || gameState === 'PLAYING')) { loadSongBackgroundImage(selectedSongData.illustrationPath); } } if (gameState === 'GAME' || gameState === 'PLAYING') { drawPerspectiveStaticElements(); } }
+/**
+ * 計算透視效果下的 X 座標
+ * @param {number} boundaryIndex - 軌道邊界索引
+ * @param {number} y - Y 座標位置
+ * @returns {number} - 計算後的 X 座標
+ */
+function getInterpolatedX(boundaryIndex, y) { 
+    // 檢查必要參數是否已初始化
+    if (BOTTOM_LANE_WIDTH === undefined || TOP_LANE_WIDTH === undefined || 
+        TOP_OFFSET_X === undefined || canvas.height <= 0) {
+        return 0;
+    }
+    
+    // 計算底部和頂部的 X 座標
+    const bottomX = boundaryIndex * BOTTOM_LANE_WIDTH;
+    const topX = TOP_OFFSET_X + (boundaryIndex * TOP_LANE_WIDTH);
+    
+    // 確保 Y 值在有效範圍內
+    const clampedY = Math.max(0, Math.min(canvas.height, y));
+    
+    // 計算插值比例
+    const ratio = canvas.height > 0 ? (clampedY / canvas.height) : 0;
+    
+    // 返回插值後的 X 座標
+    return topX + (bottomX - topX) * ratio;
+}
+
+/**
+ * 調整畫布大小並重新計算相關參數
+ */
+function resizeCanvas() {
+    const displayWidth = window.innerWidth;
+    const displayHeight = window.innerHeight;
+    
+    // 只有當尺寸變化超過閾值時才調整
+    if (Math.abs(canvas.width - displayWidth) > 1 || Math.abs(canvas.height - displayHeight) > 1) {
+        canvas.width = displayWidth;
+        canvas.height = displayHeight;
+        console.log(`Canvas resized to: ${canvas.width} x ${canvas.height}`);
+        
+        // 重新計算遊戲參數
+        JUDGMENT_LINE_Y = canvas.height * 0.85;
+        TOP_TOTAL_WIDTH = canvas.width * (1 - PERSPECTIVE_STRENGTH);
+        TOP_OFFSET_X = (canvas.width - TOP_TOTAL_WIDTH) / 2;
+        BOTTOM_LANE_WIDTH = canvas.width / LANE_COUNT;
+        TOP_LANE_WIDTH = TOP_TOTAL_WIDTH / LANE_COUNT;
+        NOTE_HEIGHT = Math.max(10, Math.round(canvas.height * NOTE_HEIGHT_RATIO));
+        
+        console.log(`重新計算參數: 判定線 Y=${JUDGMENT_LINE_Y.toFixed(0)}, 音符高度=${NOTE_HEIGHT}`);
+        
+        // 在特定條件下重繪背景
+        if (!gameLoopRunning && ctx && 
+            gameState !== 'LOADING' && 
+            gameState !== 'INITIALIZING' && 
+            gameState !== 'SELECTING' && 
+            gameState !== 'SPLASH') {
+            drawGameBackground();
+        }
+    }
+}
+/**
+ * 繪製遊戲背景
+ * 包括背景圖片、模糊效果和暗化處理
+ */
+function drawGameBackground() {
+    if (!ctx) return;
+    
+    // 清除畫布
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 如果背景圖已準備好，繪製背景圖
+    if (isSongBgReady && songBgImage) {
+        // 設置模糊效果
+        ctx.filter = `blur(${BACKGROUND_BLUR_AMOUNT}px)`;
+        
+        // 計算圖片與畫布的比例
+        const canvasAspect = canvas.width / canvas.height;
+        const bgAspect = songBgImage.naturalWidth / songBgImage.naturalHeight;
+        let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
+        
+        // 根據比例調整繪製尺寸和位置
+        if (bgAspect > canvasAspect) {
+            drawHeight = canvas.height;
+            drawWidth = drawHeight * bgAspect;
+            offsetX = (canvas.width - drawWidth) / 2;
+        } else {
+            drawWidth = canvas.width;
+            drawHeight = drawWidth / bgAspect;
+            offsetY = (canvas.height - drawHeight) / 2;
+        }
+        
+        // 嘗試繪製背景圖
+        try {
+            ctx.drawImage(songBgImage, offsetX, offsetY, drawWidth, drawHeight);
+        } catch (e) {
+            console.error("繪製背景圖時出錯:", e);
+            isSongBgReady = false;
+            songBgImage = null;
+            ctx.fillStyle = COLOR_BACKGROUND;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        // 重置濾鏡並添加暗化效果
+        ctx.filter = 'none';
+        ctx.fillStyle = `rgba(0, 0, 0, ${BACKGROUND_DIM_ALPHA})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } else {
+        // 如果沒有背景圖，使用純色背景
+        ctx.fillStyle = COLOR_BACKGROUND;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // 如果需要且尚未載入，嘗試載入背景圖
+        if (!isSongBgLoading && !isSongBgReady && 
+            selectedSongData?.illustrationPath && 
+            (gameState === 'LOADING' || gameState === 'GAME' || gameState === 'PLAYING')) {
+            loadSongBackgroundImage(selectedSongData.illustrationPath);
+        }
+    }
+    
+    // 在遊戲狀態下繪製透視元素
+    if (gameState === 'GAME' || gameState === 'PLAYING') {
+        drawPerspectiveStaticElements();
+    }
+}
 
 // =============================================================================
 // UI 畫面管理與更新
@@ -226,36 +375,522 @@ function showResultScreen() { gameLoopRunning = false; isPlaying = false; if (au
 // =============================================================================
 // 繪圖函式 (Drawing Functions)
 // =============================================================================
-function drawPerspectiveStaticElements() { if (!ctx) return; const originalLineWidth = ctx.lineWidth; ctx.strokeStyle = COLOR_LANE_SEPARATOR; ctx.lineWidth = 1; for (let i = 1; i < LANE_COUNT; i++) { const topX = getInterpolatedX(i, 0); const bottomX = getInterpolatedX(i, canvas.height); ctx.beginPath(); ctx.moveTo(topX, 0); ctx.lineTo(bottomX, canvas.height); ctx.stroke(); } ctx.strokeStyle = COLOR_LINES; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(getInterpolatedX(0, 0), 0); ctx.lineTo(getInterpolatedX(0, canvas.height), canvas.height); ctx.stroke(); ctx.beginPath(); ctx.moveTo(getInterpolatedX(LANE_COUNT, 0), 0); ctx.lineTo(getInterpolatedX(LANE_COUNT, canvas.height), canvas.height); ctx.stroke(); ctx.strokeStyle = COLOR_JUDGMENT_LINE; ctx.lineWidth = 3; const judgmentLeftX = getInterpolatedX(0, JUDGMENT_LINE_Y); const judgmentRightX = getInterpolatedX(LANE_COUNT, JUDGMENT_LINE_Y); ctx.beginPath(); ctx.moveTo(judgmentLeftX, JUDGMENT_LINE_Y); ctx.lineTo(judgmentRightX, JUDGMENT_LINE_Y); ctx.stroke(); ctx.lineWidth = originalLineWidth; }
-function drawNotes() { if (!ctx || !loadedNotes) return; ctx.fillStyle = COLOR_NOTE; loadedNotes.forEach(note => { if (!note.judged && note.isActive) { const topY = note.y; const judgmentLeftX = getInterpolatedX(note.column, JUDGMENT_LINE_Y); const judgmentRightX = getInterpolatedX(note.column + 1, JUDGMENT_LINE_Y); const widthAtJudgment = judgmentRightX - judgmentLeftX; const topLeftX = getInterpolatedX(note.column, topY); const topRightX = getInterpolatedX(note.column + 1, topY); const widthAtTop = topRightX - topLeftX; const heightScale = (widthAtJudgment > 0) ? (widthAtTop / widthAtJudgment) : 1; const minHeightScale = 0.1; const clampedHeightScale = Math.max(minHeightScale, heightScale); const currentVisualHeight = NOTE_HEIGHT * clampedHeightScale; const bottomY = topY + currentVisualHeight; if (topY < canvas.height && bottomY > 0) { const bottomLeftX = getInterpolatedX(note.column, bottomY); const bottomRightX = getInterpolatedX(note.column + 1, bottomY); ctx.beginPath(); ctx.moveTo(topLeftX, topY); ctx.lineTo(topRightX, topY); ctx.lineTo(bottomRightX, bottomY); ctx.lineTo(bottomLeftX, bottomY); ctx.closePath(); ctx.fill(); } } }); }
-function drawJudgmentFeedback() { if (!ctx) return; if (lastJudgment.text && currentSongTime >= 0 && currentSongTime < lastJudgment.time + JUDGMENT_DISPLAY_DURATION) { const timeSinceJudgment = currentSongTime - lastJudgment.time; const alpha = 1.0 - (timeSinceJudgment / JUDGMENT_DISPLAY_DURATION); ctx.font = `bold 56px ${FONT_FAMILY_CANVAS}`; ctx.textAlign = 'center'; let judgmentColor = 'rgba(255, 255, 255, '; if (lastJudgment.text === 'Perfect') judgmentColor = COLOR_PERFECT_PARTICLE; else if (lastJudgment.text === 'Great') judgmentColor = COLOR_GREAT_PARTICLE; else if (lastJudgment.text === 'Good') judgmentColor = COLOR_GOOD_PARTICLE; else if (lastJudgment.text === 'Miss') judgmentColor = 'rgba(255, 0, 0, '; ctx.fillStyle = judgmentColor + Math.max(0, alpha) + ')'; const centerX = canvas.width / 2; const feedbackY = JUDGMENT_LINE_Y - 80; ctx.fillText(lastJudgment.text, centerX, feedbackY); } }
-function drawScoreAndCombo() { if (!ctx) return; ctx.fillStyle = '#FFFFFF'; ctx.font = `bold 32px ${FONT_FAMILY_CANVAS}`; ctx.textAlign = 'right'; ctx.fillText(Math.round(score).toString().padStart(7, '0'), canvas.width - 20, 40); if (combo > 0) { ctx.font = `bold 64px ${FONT_FAMILY_CANVAS}`; ctx.textAlign = 'center'; const comboX = canvas.width / 2; const comboY = JUDGMENT_LINE_Y - 200; ctx.fillStyle = '#FFFF00'; ctx.fillText(combo, comboX, comboY); if (combo > 1) { ctx.font = `bold 32px ${FONT_FAMILY_CANVAS}`; ctx.fillStyle = '#FFFFFF'; ctx.fillText('Combos', comboX, comboY + 45); } } ctx.font = `bold 20px ${FONT_FAMILY_CANVAS}`; ctx.fillStyle = '#CCCCCC'; ctx.textAlign = 'right'; ctx.fillText(`Max Combo: ${maxCombo}`, canvas.width - 20, 70); }
-function preloadGameInfoIllustration(src) { if (!src || src === gameInfoIllustrationSrc) { if (src === gameInfoIllustration?.src && gameInfoIllustration.complete && gameInfoIllustration.naturalWidth > 0) { if (!gameInfoIllustrationLoaded) { console.log("檢測到遊戲內曲繪已緩存/提前載入:", src); gameInfoIllustrationLoaded = true; } } return; } console.log("準備預載新的遊戲內曲繪:", src); gameInfoIllustrationSrc = src; gameInfoIllustrationLoaded = false; gameInfoIllustration = new Image(); gameInfoIllustration.onload = () => { console.log("遊戲內曲繪載入完成:", src); if (gameInfoIllustrationSrc === src) { gameInfoIllustrationLoaded = true; } else { console.log("遊戲內曲繪載入完成，但目標 src 已改變。忽略此次載入結果。"); } }; gameInfoIllustration.onerror = () => { console.warn("遊戲內曲繪失敗:", src); if (gameInfoIllustrationSrc === src) { gameInfoIllustration = null; gameInfoIllustrationSrc = ''; } gameInfoIllustrationLoaded = false; }; gameInfoIllustration.src = src; }
-function drawGameInfo() { if (!ctx || !selectedSongData) return; const margin = 20, imageSize = 50, textSpacing = 8, titleFontSize = 20, artistFontSize = 14; const currentIllustrationPath = selectedSongData.illustrationPath || ''; if (currentIllustrationPath && gameInfoIllustrationSrc !== currentIllustrationPath) { preloadGameInfoIllustration(currentIllustrationPath); } if (gameInfoIllustration && gameInfoIllustrationLoaded && gameInfoIllustrationSrc === currentIllustrationPath) { try { ctx.globalAlpha = 0.8; ctx.drawImage(gameInfoIllustration, margin, margin, imageSize, imageSize); ctx.globalAlpha = 1.0; } catch (e) { console.error("繪製遊戲內曲繪時出錯:", e, gameInfoIllustration); } } ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = `bold ${titleFontSize}px ${FONT_FAMILY_CANVAS}`; ctx.fillText(selectedSongData.title || '未知', margin + imageSize + textSpacing, margin + 5); ctx.font = `${artistFontSize}px ${FONT_FAMILY_CANVAS}`; ctx.fillStyle = 'rgba(204, 204, 204, 0.9)'; ctx.fillText(selectedSongData.artist || '未知', margin + imageSize + textSpacing, margin + titleFontSize + 8); ctx.textBaseline = 'alphabetic'; }
+/**
+ * 繪製透視效果的靜態元素
+ * 包括軌道分隔線、邊界線和判定線
+ */
+function drawPerspectiveStaticElements() {
+    if (!ctx) return;
+    
+    // 保存原始線寬
+    const originalLineWidth = ctx.lineWidth;
+    
+    // 繪製軌道分隔線
+    ctx.strokeStyle = COLOR_LANE_SEPARATOR;
+    ctx.lineWidth = 1;
+    for (let i = 1; i < LANE_COUNT; i++) {
+        const topX = getInterpolatedX(i, 0);
+        const bottomX = getInterpolatedX(i, canvas.height);
+        ctx.beginPath();
+        ctx.moveTo(topX, 0);
+        ctx.lineTo(bottomX, canvas.height);
+        ctx.stroke();
+    }
+    
+    // 繪製左右邊界線
+    ctx.strokeStyle = COLOR_LINES;
+    ctx.lineWidth = 6;
+    
+    // 左邊界
+    ctx.beginPath();
+    ctx.moveTo(getInterpolatedX(0, 0), 0);
+    ctx.lineTo(getInterpolatedX(0, canvas.height), canvas.height);
+    ctx.stroke();
+    
+    // 右邊界
+    ctx.beginPath();
+    ctx.moveTo(getInterpolatedX(LANE_COUNT, 0), 0);
+    ctx.lineTo(getInterpolatedX(LANE_COUNT, canvas.height), canvas.height);
+    ctx.stroke();
+    
+    // 繪製判定線
+    ctx.strokeStyle = COLOR_JUDGMENT_LINE;
+    ctx.lineWidth = 3;
+    const judgmentLeftX = getInterpolatedX(0, JUDGMENT_LINE_Y);
+    const judgmentRightX = getInterpolatedX(LANE_COUNT, JUDGMENT_LINE_Y);
+    ctx.beginPath();
+    ctx.moveTo(judgmentLeftX, JUDGMENT_LINE_Y);
+    ctx.lineTo(judgmentRightX, JUDGMENT_LINE_Y);
+    ctx.stroke();
+    
+    // 恢復原始線寬
+    ctx.lineWidth = originalLineWidth;
+}
+/**
+ * 繪製音符
+ * 根據透視效果計算音符的位置和大小
+ */
+function drawNotes() {
+    if (!ctx || !loadedNotes) return;
+    
+    ctx.fillStyle = COLOR_NOTE;
+    
+    loadedNotes.forEach(note => {
+        // 只繪製未判定且處於活動狀態的音符
+        if (!note.judged && note.isActive) {
+            const topY = note.y;
+            
+            // 計算判定線處的寬度
+            const judgmentLeftX = getInterpolatedX(note.column, JUDGMENT_LINE_Y);
+            const judgmentRightX = getInterpolatedX(note.column + 1, JUDGMENT_LINE_Y);
+            const widthAtJudgment = judgmentRightX - judgmentLeftX;
+            
+            // 計算音符頂部的位置和寬度
+            const topLeftX = getInterpolatedX(note.column, topY);
+            const topRightX = getInterpolatedX(note.column + 1, topY);
+            const widthAtTop = topRightX - topLeftX;
+            
+            // 計算高度縮放比例
+            const heightScale = (widthAtJudgment > 0) ? (widthAtTop / widthAtJudgment) : 1;
+            const minHeightScale = 0.1;
+            const clampedHeightScale = Math.max(minHeightScale, heightScale);
+            
+            // 計算音符的視覺高度和底部位置
+            const currentVisualHeight = NOTE_HEIGHT * clampedHeightScale;
+            const bottomY = topY + currentVisualHeight;
+            
+            // 只繪製在畫布範圍內的音符
+            if (topY < canvas.height && bottomY > 0) {
+                const bottomLeftX = getInterpolatedX(note.column, bottomY);
+                const bottomRightX = getInterpolatedX(note.column + 1, bottomY);
+                
+                // 繪製音符的梯形
+                ctx.beginPath();
+                ctx.moveTo(topLeftX, topY);
+                ctx.lineTo(topRightX, topY);
+                ctx.lineTo(bottomRightX, bottomY);
+                ctx.lineTo(bottomLeftX, bottomY);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+    });
+}
+/**
+ * 繪製判定結果文字
+ * 根據判定結果顯示不同顏色的文字，並隨時間淡出
+ */
+function drawJudgmentFeedback() { 
+    if (!ctx) return; 
+    
+    // 只在有判定結果且在顯示時間內時繪製
+    if (lastJudgment.text && currentSongTime >= 0 && 
+        currentSongTime < lastJudgment.time + JUDGMENT_DISPLAY_DURATION) { 
+        
+        // 計算經過的時間和透明度
+        const timeSinceJudgment = currentSongTime - lastJudgment.time; 
+        const alpha = 1.0 - (timeSinceJudgment / JUDGMENT_DISPLAY_DURATION); 
+        
+        // 設置文字樣式
+        ctx.font = `bold 56px ${FONT_FAMILY_CANVAS}`; 
+        ctx.textAlign = 'center'; 
+        
+        // 根據判定結果選擇顏色
+        let judgmentColor = 'rgba(255, 255, 255, '; 
+        if (lastJudgment.text === 'Perfect') judgmentColor = COLOR_PERFECT_PARTICLE; 
+        else if (lastJudgment.text === 'Great') judgmentColor = COLOR_GREAT_PARTICLE; 
+        else if (lastJudgment.text === 'Good') judgmentColor = COLOR_GOOD_PARTICLE; 
+        else if (lastJudgment.text === 'Miss') judgmentColor = 'rgba(255, 0, 0, '; 
+        
+        // 設置填充顏色並繪製文字
+        ctx.fillStyle = judgmentColor + Math.max(0, alpha) + ')'; 
+        const centerX = canvas.width / 2; 
+        const feedbackY = JUDGMENT_LINE_Y - 80; 
+        ctx.fillText(lastJudgment.text, centerX, feedbackY); 
+    } 
+}
+/**
+ * 繪製分數和連擊數
+ * 在畫面上顯示當前分數、連擊數和最大連擊數
+ */
+function drawScoreAndCombo() { 
+    if (!ctx) return; 
+    
+    // 繪製分數
+    ctx.fillStyle = '#FFFFFF'; 
+    ctx.font = `bold 32px ${FONT_FAMILY_CANVAS}`; 
+    ctx.textAlign = 'right'; 
+    ctx.fillText(Math.round(score).toString().padStart(7, '0'), canvas.width - 20, 40); 
+    
+    // 繪製連擊數
+    if (combo > 0) { 
+        ctx.font = `bold 64px ${FONT_FAMILY_CANVAS}`; 
+        ctx.textAlign = 'center'; 
+        const comboX = canvas.width / 2; 
+        const comboY = JUDGMENT_LINE_Y - 200; 
+        ctx.fillStyle = '#FFFF00'; 
+        ctx.fillText(combo, comboX, comboY); 
+        
+        // 只有連擊數大於1時才顯示"Combos"文字
+        if (combo > 1) { 
+            ctx.font = `bold 32px ${FONT_FAMILY_CANVAS}`; 
+            ctx.fillStyle = '#FFFFFF'; 
+            ctx.fillText('Combos', comboX, comboY + 45); 
+        } 
+    } 
+    
+    // 繪製最大連擊數
+    ctx.font = `bold 20px ${FONT_FAMILY_CANVAS}`; 
+    ctx.fillStyle = '#CCCCCC'; 
+    ctx.textAlign = 'right'; 
+    ctx.fillText(`Max Combo: ${maxCombo}`, canvas.width - 20, 70); 
+}
+/**
+ * 預載遊戲內小曲繪圖片
+ * @param {string} src - 圖片路徑
+ */
+function preloadGameInfoIllustration(src) { 
+    // 如果路徑為空或與當前路徑相同，檢查是否已載入
+    if (!src || src === gameInfoIllustrationSrc) { 
+        if (src === gameInfoIllustration?.src && 
+            gameInfoIllustration.complete && 
+            gameInfoIllustration.naturalWidth > 0) { 
+            if (!gameInfoIllustrationLoaded) { 
+                console.log("檢測到遊戲內曲繪已緩存/提前載入:", src); 
+                gameInfoIllustrationLoaded = true; 
+            } 
+        } 
+        return; 
+    } 
+    
+    // 開始載入新圖片
+    console.log("準備預載新的遊戲內曲繪:", src); 
+    gameInfoIllustrationSrc = src; 
+    gameInfoIllustrationLoaded = false; 
+    gameInfoIllustration = new Image(); 
+    
+    // 設置載入完成處理函數
+    gameInfoIllustration.onload = () => { 
+        console.log("遊戲內曲繪載入完成:", src); 
+        if (gameInfoIllustrationSrc === src) { 
+            gameInfoIllustrationLoaded = true; 
+        } else { 
+            console.log("遊戲內曲繪載入完成，但目標 src 已改變。忽略此次載入結果。"); 
+        } 
+    }; 
+    
+    // 設置載入失敗處理函數
+    gameInfoIllustration.onerror = () => { 
+        console.warn("遊戲內曲繪失敗:", src); 
+        if (gameInfoIllustrationSrc === src) { 
+            gameInfoIllustration = null; 
+            gameInfoIllustrationSrc = ''; 
+        } 
+        gameInfoIllustrationLoaded = false; 
+    }; 
+    
+    // 開始載入圖片
+    gameInfoIllustration.src = src; 
+}
+/**
+ * 繪製遊戲資訊
+ * 在遊戲畫面左上角顯示當前歌曲的曲繪、標題和作者
+ */
+function drawGameInfo() { 
+    if (!ctx || !selectedSongData) return; 
+    
+    // 定義佈局參數
+    const margin = 20, 
+          imageSize = 50, 
+          textSpacing = 8, 
+          titleFontSize = 20, 
+          artistFontSize = 14; 
+    
+    // 獲取當前曲繪路徑
+    const currentIllustrationPath = selectedSongData.illustrationPath || ''; 
+    
+    // 如果曲繪路徑變更，預載新的曲繪
+    if (currentIllustrationPath && gameInfoIllustrationSrc !== currentIllustrationPath) { 
+        preloadGameInfoIllustration(currentIllustrationPath); 
+    } 
+    
+    // 繪製曲繪
+    if (gameInfoIllustration && gameInfoIllustrationLoaded && 
+        gameInfoIllustrationSrc === currentIllustrationPath) { 
+        try { 
+            ctx.globalAlpha = 0.8; 
+            ctx.drawImage(gameInfoIllustration, margin, margin, imageSize, imageSize); 
+            ctx.globalAlpha = 1.0; 
+        } catch (e) { 
+            console.error("繪製遊戲內曲繪時出錯:", e, gameInfoIllustration); 
+        } 
+    } 
+    
+    // 繪製歌曲標題
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; 
+    ctx.textAlign = 'left'; 
+    ctx.textBaseline = 'top'; 
+    ctx.font = `bold ${titleFontSize}px ${FONT_FAMILY_CANVAS}`; 
+    ctx.fillText(selectedSongData.title || '未知', 
+                margin + imageSize + textSpacing, margin + 5); 
+    
+    // 繪製歌曲作者
+    ctx.font = `${artistFontSize}px ${FONT_FAMILY_CANVAS}`; 
+    ctx.fillStyle = 'rgba(204, 204, 204, 0.9)'; 
+    ctx.fillText(selectedSongData.artist || '未知', 
+                margin + imageSize + textSpacing, margin + titleFontSize + 8); 
+    
+    // 重置文字基線
+    ctx.textBaseline = 'alphabetic'; 
+}
 
 // =============================================================================
 // 特效更新與繪製函數
 // =============================================================================
-function updateAndDrawHitEffects(currentTime) { if (!ctx) return; activeHitEffects = activeHitEffects.filter(effect => { effect.particles = effect.particles.filter(particle => currentTime - particle.startTime < particle.lifetime); return effect.particles.length > 0; }); activeHitEffects.forEach(effect => { effect.particles.forEach(particle => { const elapsedTime = currentTime - particle.startTime; const lifetimeRatio = elapsedTime / particle.lifetime; particle.x += particle.vx * (1/60); particle.y += particle.vy * (1/60); particle.rotation += particle.angularVelocity * (1/60); particle.alpha = Math.max(0, 1.0 - lifetimeRatio); ctx.save(); ctx.fillStyle = particle.color + particle.alpha + ')'; ctx.globalAlpha = particle.alpha; ctx.translate(particle.x, particle.y); ctx.rotate(particle.rotation); const side = particle.size; const height = side * Math.sqrt(3) / 2; ctx.beginPath(); ctx.moveTo(0, -height / 2); ctx.lineTo(-side / 2, height / 2); ctx.lineTo(side / 2, height / 2); ctx.closePath(); ctx.fill(); ctx.restore(); }); }); ctx.globalAlpha = 1.0; }
-function updateAndDrawLaneFlashes(currentTime) { if (!ctx) return; activeLaneFlashes = activeLaneFlashes.filter(flash => currentTime - flash.startTime < flash.duration); activeLaneFlashes.forEach(flash => { const elapsedTime = currentTime - flash.startTime; const alpha = Math.max(0, 1.0 - (elapsedTime / flash.duration)); const laneIndex = flash.laneIndex; const bottomX1 = getInterpolatedX(laneIndex, JUDGMENT_LINE_Y); const bottomX2 = getInterpolatedX(laneIndex + 1, JUDGMENT_LINE_Y); const topX1 = getInterpolatedX(laneIndex, 0); const topX2 = getInterpolatedX(laneIndex + 1, 0); const gradient = ctx.createLinearGradient(0, JUDGMENT_LINE_Y, 0, 0); gradient.addColorStop(0, COLOR_LANE_FLASH + alpha + ')'); gradient.addColorStop(1, COLOR_LANE_FLASH + '0)'); ctx.fillStyle = gradient; ctx.beginPath(); ctx.moveTo(topX1, 0); ctx.lineTo(topX2, 0); ctx.lineTo(bottomX2, JUDGMENT_LINE_Y); ctx.lineTo(bottomX1, JUDGMENT_LINE_Y); ctx.closePath(); ctx.fill(); }); }
-function updateAndDrawRingEffects(currentTime) { if (!ctx) return; activeRingEffects = activeRingEffects.filter(ring => currentTime - ring.startTime < ring.duration); activeRingEffects.forEach(ring => { const elapsedTime = currentTime - ring.startTime; const progress = elapsedTime / ring.duration; const currentScale = RING_EFFECT_START_SCALE + (RING_EFFECT_END_SCALE - RING_EFFECT_START_SCALE) * progress; const currentAlpha = 1.0 - progress; const currentWidth = ring.startWidth * currentScale; const currentHeight = (ring.startWidth / 2) * currentScale; ctx.save(); ctx.globalAlpha = Math.max(0, currentAlpha); ctx.strokeStyle = COLOR_RING_EFFECT + Math.max(0, currentAlpha) + ')'; ctx.lineWidth = RING_EFFECT_LINE_WIDTH; ctx.beginPath(); ctx.ellipse( ring.centerX, ring.centerY, currentWidth / 2, currentHeight / 2, 0, 0, 2 * Math.PI ); ctx.stroke(); ctx.restore(); }); ctx.globalAlpha = 1.0; }
+/**
+ * 更新並繪製打擊特效
+ * 管理粒子特效的生命週期和動畫
+ * @param {number} currentTime - 當前遊戲時間
+ */
+function updateAndDrawHitEffects(currentTime) { 
+    if (!ctx) return; 
+    
+    // 過濾掉已經結束生命週期的粒子和特效
+    activeHitEffects = activeHitEffects.filter(effect => { 
+        effect.particles = effect.particles.filter(particle => 
+            currentTime - particle.startTime < particle.lifetime); 
+        return effect.particles.length > 0; 
+    }); 
+    
+    // 更新並繪製每個特效的粒子
+    activeHitEffects.forEach(effect => { 
+        effect.particles.forEach(particle => { 
+            // 計算粒子的生命週期和透明度
+            const elapsedTime = currentTime - particle.startTime; 
+            const lifetimeRatio = elapsedTime / particle.lifetime; 
+            
+            // 更新粒子位置和旋轉
+            particle.x += particle.vx * (1/60); 
+            particle.y += particle.vy * (1/60); 
+            particle.rotation += particle.angularVelocity * (1/60); 
+            
+            // 更新透明度
+            particle.alpha = Math.max(0, 1.0 - lifetimeRatio); 
+            
+            // 繪製粒子
+            ctx.save(); 
+            ctx.fillStyle = particle.color + particle.alpha + ')'; 
+            ctx.globalAlpha = particle.alpha; 
+            ctx.translate(particle.x, particle.y); 
+            ctx.rotate(particle.rotation); 
+            
+            // 繪製三角形粒子
+            const side = particle.size; 
+            const height = side * Math.sqrt(3) / 2; 
+            ctx.beginPath(); 
+            ctx.moveTo(0, -height / 2); 
+            ctx.lineTo(-side / 2, height / 2); 
+            ctx.lineTo(side / 2, height / 2); 
+            ctx.closePath(); 
+            ctx.fill(); 
+            
+            ctx.restore(); 
+        }); 
+    }); 
+    
+    // 重置全局透明度
+    ctx.globalAlpha = 1.0; 
+}
+/**
+ * 更新並繪製軌道閃光效果
+ * 當玩家按下按鍵時顯示的軌道閃光
+ * @param {number} currentTime - 當前遊戲時間
+ */
+function updateAndDrawLaneFlashes(currentTime) { 
+    if (!ctx) return; 
+    
+    // 過濾掉已經結束的閃光效果
+    activeLaneFlashes = activeLaneFlashes.filter(flash => 
+        currentTime - flash.startTime < flash.duration); 
+    
+    // 繪製每個軌道的閃光效果
+    activeLaneFlashes.forEach(flash => { 
+        // 計算閃光的透明度
+        const elapsedTime = currentTime - flash.startTime; 
+        const alpha = Math.max(0, 1.0 - (elapsedTime / flash.duration)); 
+        
+        // 獲取軌道的四個角點座標
+        const laneIndex = flash.laneIndex; 
+        const bottomX1 = getInterpolatedX(laneIndex, JUDGMENT_LINE_Y); 
+        const bottomX2 = getInterpolatedX(laneIndex + 1, JUDGMENT_LINE_Y); 
+        const topX1 = getInterpolatedX(laneIndex, 0); 
+        const topX2 = getInterpolatedX(laneIndex + 1, 0); 
+        
+        // 創建漸變色
+        const gradient = ctx.createLinearGradient(0, JUDGMENT_LINE_Y, 0, 0); 
+        gradient.addColorStop(0, COLOR_LANE_FLASH + alpha + ')'); 
+        gradient.addColorStop(1, COLOR_LANE_FLASH + '0)'); 
+        
+        // 繪製閃光梯形
+        ctx.fillStyle = gradient; 
+        ctx.beginPath(); 
+        ctx.moveTo(topX1, 0); 
+        ctx.lineTo(topX2, 0); 
+        ctx.lineTo(bottomX2, JUDGMENT_LINE_Y); 
+        ctx.lineTo(bottomX1, JUDGMENT_LINE_Y); 
+        ctx.closePath(); 
+        ctx.fill(); 
+    }); 
+}
+/**
+ * 更新並繪製環形特效
+ * 當玩家成功擊中音符時顯示的擴散環
+ * @param {number} currentTime - 當前遊戲時間
+ */
+function updateAndDrawRingEffects(currentTime) { 
+    if (!ctx) return; 
+    
+    // 過濾掉已經結束的環形特效
+    activeRingEffects = activeRingEffects.filter(ring => 
+        currentTime - ring.startTime < ring.duration); 
+    
+    // 繪製每個環形特效
+    activeRingEffects.forEach(ring => { 
+        // 計算特效的進度和縮放比例
+        const elapsedTime = currentTime - ring.startTime; 
+        const progress = elapsedTime / ring.duration; 
+        const currentScale = RING_EFFECT_START_SCALE + 
+            (RING_EFFECT_END_SCALE - RING_EFFECT_START_SCALE) * progress; 
+        
+        // 計算透明度和尺寸
+        const currentAlpha = 1.0 - progress; 
+        const currentWidth = ring.startWidth * currentScale; 
+        const currentHeight = (ring.startWidth / 2) * currentScale; 
+        
+        // 繪製環形
+        ctx.save(); 
+        ctx.globalAlpha = Math.max(0, currentAlpha); 
+        ctx.strokeStyle = COLOR_RING_EFFECT + Math.max(0, currentAlpha) + ')'; 
+        ctx.lineWidth = RING_EFFECT_LINE_WIDTH; 
+        ctx.beginPath(); 
+        ctx.ellipse( 
+            ring.centerX, 
+            ring.centerY, 
+            currentWidth / 2, 
+            currentHeight / 2, 
+            0, 0, 2 * Math.PI 
+        ); 
+        ctx.stroke(); 
+        ctx.restore(); 
+    }); 
+    
+    // 重置全局透明度
+    ctx.globalAlpha = 1.0; 
+}
 
 // =============================================================================
 // 遊戲主迴圈 (Game Loop)
 // =============================================================================
+/**
+ * 遊戲主迴圈
+ * 負責更新遊戲狀態和繪製所有遊戲元素
+ */
 function gameLoop() {
-    if (!gameLoopRunning) { console.log("遊戲迴圈已標記停止。"); return; }
-    if (!isPlaying) { console.log("偵測到 isPlaying 為 false，停止遊戲迴圈。"); gameLoopRunning = false; if (gameState === 'PLAYING' || gameState === 'GAME') { console.warn("遊戲迴圈檢測到 isPlaying 為 false，但狀態仍是 GAME/PLAYING，嘗試顯示結果。"); } return; }
-    if (audioContext && isPlaying && audioSource) { rawElapsedTime = audioContext.currentTime - audioStartTime; currentSongTime = Math.max(0, rawElapsedTime); } else { console.error("遊戲狀態異常：isPlaying 為 true 但 AudioContext 或 AudioSource 丟失！"); gameLoopRunning = false; showScreen('SELECTING'); return; }
-    if (!ctx) { console.error("Canvas context lost!"); gameLoopRunning = false; return; }
+    // 檢查遊戲迴圈是否應該繼續運行
+    if (!gameLoopRunning) { 
+        console.log("遊戲迴圈已標記停止。"); 
+        return; 
+    }
+    
+    // 檢查遊戲是否正在播放
+    if (!isPlaying) { 
+        console.log("偵測到 isPlaying 為 false，停止遊戲迴圈。"); 
+        gameLoopRunning = false; 
+        if (gameState === 'PLAYING' || gameState === 'GAME') { 
+            console.warn("遊戲迴圈檢測到 isPlaying 為 false，但狀態仍是 GAME/PLAYING，嘗試顯示結果。"); 
+        } 
+        return; 
+    }
+    
+    // 更新歌曲時間
+    if (audioContext && isPlaying && audioSource) { 
+        rawElapsedTime = audioContext.currentTime - audioStartTime; 
+        currentSongTime = Math.max(0, rawElapsedTime); 
+    } else { 
+        console.error("遊戲狀態異常：isPlaying 為 true 但 AudioContext 或 AudioSource 丟失！"); 
+        gameLoopRunning = false; 
+        showScreen('SELECTING'); 
+        return; 
+    }
+    
+    // 檢查畫布上下文是否可用
+    if (!ctx) { 
+        console.error("Canvas context lost!"); 
+        gameLoopRunning = false; 
+        return; 
+    }
 
-    // 1. Draw Background
+    // 1. 繪製背景
     drawGameBackground();
 
-    // 2. Update Notes state
-    if (isPlaying) { loadedNotes.forEach(note => { if (!note.judged) { const appearTime = note.targetTime - noteAppearTimeOffset; if (rawElapsedTime >= appearTime) { note.isActive = true; const timeSinceAppearRaw = rawElapsedTime - appearTime; const timeProgressRaw = noteAppearTimeOffset > 0 ? Math.max(0, timeSinceAppearRaw / noteAppearTimeOffset) : 1; const yProgress = LINEAR_MIX_FACTOR * timeProgressRaw + (1 - LINEAR_MIX_FACTOR) * Math.pow(timeProgressRaw, NOTE_SPEED_EASING_POWER); note.y = yProgress * JUDGMENT_LINE_Y; if (currentSongTime > note.targetTime + JUDGE_WINDOW_MISS) { if (!note.judged) { console.log(`判定: Miss (超時) ID: ${note.id}`); note.judged = true; note.judgment = 'Miss'; note.isActive = false; lastJudgment = { text: 'Miss', time: currentSongTime, column: note.column }; combo = 0; judgmentCounts.miss++; } } } else { note.isActive = false; note.y = 0; } } else { note.isActive = false; } }); }
+    // 2. 更新音符狀態
+    if (isPlaying) { 
+        loadedNotes.forEach(note => { 
+            if (!note.judged) { 
+                // 計算音符出現時間 (原始目標時間 - 考慮速度的總偏移量)
+                // 將額外偏移量也考慮速度倍率的影響
+                const scaledAdditionalOffset = ADDITIONAL_NOTE_OFFSET_SECONDS / speedMultiplier;
+                const appearTime = note.targetTime - noteAppearTimeOffset - scaledAdditionalOffset; 
+                
+                if (rawElapsedTime >= appearTime) { 
+                    // 音符已經應該出現
+                    note.isActive = true; 
+                    
+                    // 計算音符的位置
+                    const timeSinceAppearRaw = rawElapsedTime - appearTime; 
+                    // 計算時間進度比例，考慮速度倍率
+                    // 使用 BASE_NOTE_APPEAR_TIME_OFFSET 和 ADDITIONAL_NOTE_OFFSET_SECONDS 的總和，再除以速度倍率
+                    const totalBaseOffset = BASE_NOTE_APPEAR_TIME_OFFSET + ADDITIONAL_NOTE_OFFSET_SECONDS;
+                    const scaledTotalOffset = totalBaseOffset / speedMultiplier;
+                    const timeProgressRaw = scaledTotalOffset > 0 ? 
+                        Math.max(0, timeSinceAppearRaw / scaledTotalOffset) : 1; 
+                    
+                    // 使用混合緩動函數計算 Y 位置進度
+                    const yProgress = LINEAR_MIX_FACTOR * timeProgressRaw + 
+                        (1 - LINEAR_MIX_FACTOR) * Math.pow(timeProgressRaw, NOTE_SPEED_EASING_POWER); 
+                    
+                    // 設置音符的 Y 座標
+                    note.y = yProgress * JUDGMENT_LINE_Y; 
+                    
+                    // 檢查是否錯過了音符
+                    if (currentSongTime > note.targetTime + JUDGE_WINDOW_MISS) { 
+                        if (!note.judged) { 
+                            console.log(`判定: Miss (超時) ID: ${note.id}`); 
+                            note.judged = true; 
+                            note.judgment = 'Miss'; 
+                            note.isActive = false; 
+                            lastJudgment = { 
+                                text: 'Miss', 
+                                time: currentSongTime, 
+                                column: note.column 
+                            }; 
+                            combo = 0; 
+                            judgmentCounts.miss++; 
+                        } 
+                    } 
+                } else { 
+                    // 音符還沒到出現時間
+                    note.isActive = false; 
+                    note.y = 0; 
+                } 
+            } else { 
+                // 音符已經被判定
+                note.isActive = false; 
+            } 
+        }); 
+    }
 
-    // --- Draw Gameplay Elements in Order ---
+    // --- 按順序繪製遊戲元素 ---
     updateAndDrawLaneFlashes(currentSongTime); // 3. Lane Flashes
     drawNotes(); // 4. Active Notes
     updateAndDrawRingEffects(currentSongTime); // 5. Ring Effects
@@ -265,7 +900,11 @@ function gameLoop() {
     drawGameInfo(); // 9. Game Info UI
 
     // 10. Request Next Frame
-    if (gameLoopRunning) { requestAnimationFrame(gameLoop); } else { console.log("gameLoopRunning 為 false，不請求下一幀。"); }
+    if (gameLoopRunning) { 
+        requestAnimationFrame(gameLoop); 
+    } else { 
+        console.log("gameLoopRunning 為 false，不請求下一幀。"); 
+    }
 }
 
 // =============================================================================
