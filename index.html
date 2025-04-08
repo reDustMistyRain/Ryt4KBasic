@@ -29,13 +29,81 @@
         #app-container { position: relative; width: 100%; height: 100%; }
         #gameCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; border: none; background-color: transparent; z-index: 1; }
 
-        /* 疊加畫面基礎樣式 */
-        .overlay-screen { position: absolute; inset: 0; display: flex; opacity: 0; transition: opacity 0.5s ease-in-out; pointer-events: none; z-index: 5; background-color: rgba(0, 0, 0, 0.7); align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; overflow: auto; }
-        .overlay-screen.visible { opacity: 1; pointer-events: auto; }
-        #song-select-screen:not(.hidden) { opacity: 1; pointer-events: auto; background-color: rgba(0, 0, 0, 0.85); flex-direction: column; }
+        /* ============================ */
+        /*     啟動畫面 (Splash)       */
+        /* ============================ */
+        #splash-screen {
+            position: absolute;
+            inset: 0; /* 覆蓋整個容器 */
+            display: flex;
+            /* 將內容定位到左下角 */
+            justify-content: flex-start;
+            align-items: flex-end;
+            padding: 40px; /* 左下角的內邊距 */
+            box-sizing: border-box; /* Padding 不影響總尺寸 */
+            background-color: #000; /* 黑色背景 */
+            color: white;
+            z-index: 15; /* 確保在最上層 */
+            cursor: pointer; /* 提示可點擊 */
+            opacity: 0; /* 預設透明 */
+            transition: opacity 0.5s ease-in-out;
+        pointer-events: none; /* 預設不可點擊 */
+        }
 
-        /* 選曲畫面 */
-        #song-select-screen { position: relative; }
+        #splash-screen.visible {
+            opacity: 1;
+            pointer-events: auto; /* 可見時可點擊 */
+        }
+
+        /* 啟動畫面上的文字 */
+        #splash-screen h1 {
+            font-size: 80pt;    /* 指定的字體大小 */
+            font-weight: 700;   /* 粗體 */
+            margin: 0;          /* 移除 H1 的預設邊距 */
+            line-height: 1;     /* 調整行高避免過大間距 */
+        }
+        /* 如果啟動畫面需要淡出 */
+        #splash-screen.hidden {
+            opacity: 0;
+            pointer-events: none; /* 淡出後不可交互 */
+        }
+
+
+        /* ============================ */
+        /*     疊加畫面基礎樣式        */
+        /* ============================ */
+        .overlay-screen {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            opacity: 0; /* 初始透明 */
+            transition: opacity 0.5s ease-in-out;
+            pointer-events: none; /* 初始不可交互 */
+            z-index: 5; /* 低於 Splash Screen */
+            background-color: rgba(0, 0, 0, 0.7); /* 預設半透明黑色背景 */
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: auto;
+        }
+        .overlay-screen.visible {
+            opacity: 1; /* 顯示時不透明 */
+            pointer-events: auto; /* 顯示時可交互 */
+        }
+
+        /* ============================ */
+        /*         選曲畫面            */
+        /* ============================ */
+        #song-select-screen { /* 繼承 .overlay-screen */
+            position: relative; /* 相對定位，以便定位速度控制 */
+        }
+        #song-select-screen:not(.hidden) { /* 覆蓋基礎樣式，使其可見時有更深的背景 */
+             opacity: 1;
+             pointer-events: auto;
+             background-color: rgba(0, 0, 0, 0.85);
+             flex-direction: column;
+        }
         #song-select-screen h2 { margin-top: 0; margin-bottom: 25px; color: #eee; font-weight: 700; }
         #song-list-container { width: 90%; max-width: 600px; max-height: calc(70vh - 100px); overflow-y: auto; display: flex; flex-direction: column; gap: 15px; margin-top: 20px; scrollbar-width: thin; scrollbar-color: #555 #333; }
         #song-list-container::-webkit-scrollbar { width: 8px; }
@@ -52,26 +120,39 @@
         #speed-control button:hover { background-color: #777; }
         #speed-display { font-size: 16px; font-weight: 700; min-width: 50px; text-align: center; }
 
-        /* Intro 畫面 */
-        #intro-screen { justify-content: flex-start; align-items: flex-end; padding: 30px; background-color: rgba(0, 0, 0, 0.7); }
+        /* ============================ */
+        /*         Intro 畫面          */
+        /* ============================ */
+        #intro-screen { /* 繼承 .overlay-screen */
+            justify-content: flex-start;
+            align-items: flex-end;
+            padding: 30px;
+            /* background-color: rgba(0, 0, 0, 0.7); /* 使用基礎 overlay 背景 */
+        }
         #intro-illustration { width: 150px; height: 150px; object-fit: cover; margin-right: 25px; border: 2px solid rgba(255, 255, 255, 0.5); border-radius: 5px; }
         #intro-text { display: flex; flex-direction: column; justify-content: flex-end; }
         #intro-title { font-size: 40pt; font-weight: 700; color: #ffffff; margin: 0 0 5px 0; text-shadow: 2px 2px 5px rgba(0,0,0,0.7); }
         #intro-artist { font-size: 20pt; color: #dddddd; margin: 0; text-shadow: 1px 1px 3px rgba(0,0,0,0.7); }
 
-        /* 結算畫面 */
-        #result-screen { padding: 0; align-items: initial; justify-content: initial; background-color: rgba(0, 0, 0, 0.85); }
+        /* ============================ */
+        /*         結算畫面            */
+        /* ============================ */
+        #result-screen { /* 繼承 .overlay-screen */
+            padding: 0;
+            align-items: initial;
+            justify-content: initial;
+            background-color: rgba(0, 0, 0, 0.85); /* 結算畫面用稍深的背景 */
+        }
         #result-header { position: absolute; top: 30px; left: 30px; text-align: left; }
-        #result-title { font-size: 60pt; font-weight: 700; margin: 0 0 5px 0; color: #fff; }
-        #result-artist { font-size: 40pt; margin: 0; color: #ddd; }
+        #result-title { font-size: 40pt; font-weight: 700; margin: 0 0 5px 0; color: #fff; }
+        #result-artist { font-size: 20pt; margin: 0; color: #ddd; }
         #result-illustration { position: absolute; top: 30px; right: 30px; width: 600px; height: 600px; object-fit: cover; border: 2px solid #555; border-radius: 5px; }
-        /* *** 修改：調整 bottom 使整體下移 *** */
         #result-judgments {
             position: absolute;
-            bottom: 10px;       /* 從 40px 改為 30px */
+            bottom: 30px; /* 調整後的 bottom 值，下移 */
             left: 40px;
             text-align: left;
-            font-size: 24pt;
+            font-size: 16pt;
             line-height: 1.7;
         }
         #result-judgments span { font-weight: 700; display: inline-block; min-width: 65px; text-align: right; margin-left: 15px; }
@@ -81,7 +162,7 @@
             text-align: left;
         }
         #result-score {
-            font-size: 60pt; /* 保持 60pt */
+            font-size: 60pt; /* 調整後的分數大小 */
             color: #FFFFA0;
             font-weight: 700;
             display: block;
@@ -91,12 +172,12 @@
         }
         #back-to-select-button {
             position: absolute;
-            bottom: 45px; /* 保持不變 */
+            bottom: 45px; /* 保持此位置 */
             right: 40px;
-            font-size: 36pt;
+            font-size: 36pt; /* 調整後的按鈕大小 */
             font-weight: 700;
-            color: #ffffff;
-            text-decoration: none;
+            color: #ffffff; /* 白色 */
+            text-decoration: none; /* 無底線 */
             cursor: pointer;
             background: none;
             border: none;
@@ -112,8 +193,15 @@
 </head>
 <body>
     <div id="app-container">
+        <!-- *** 新增：Splash Screen *** -->
+        <!-- 初始時沒有 hidden class -->
+        <div id="splash-screen">
+            <h1>RytBasic 1.0</h1>
+        </div>
+
+        <!-- 其他元素初始時都是 hidden -->
         <canvas id="gameCanvas" class="hidden"></canvas>
-        <!-- Overlay screens -->
+
         <div id="song-select-screen" class="overlay-screen hidden">
             <div style="width: 100%; max-width: 600px; text-align: center;">
                 <h2>選擇歌曲</h2>
@@ -125,6 +213,7 @@
                 <button id="increase-speed">+</button>
             </div>
         </div>
+
         <div id="intro-screen" class="overlay-screen hidden">
             <img id="intro-illustration" src="" alt="Song Illustration">
             <div id="intro-text">
@@ -132,6 +221,7 @@
                 <p id="intro-artist">作曲家</p>
             </div>
         </div>
+
         <div id="result-screen" class="overlay-screen hidden">
             <div id="result-header">
                 <p id="result-title">歌曲標題</p>
@@ -149,6 +239,7 @@
             <span id="back-to-select-button" class="text-button">返回選單</span>
         </div>
     </div>
+
     <script src="game.js"></script>
 </body>
 </html>
