@@ -22,5 +22,13 @@
       "chartPath": "songs/enchanted love/chart.json",
       "audioPath": "songs/enchanted love/song.mp3",
       "illustrationPath": "songs/enchanted love/illu.png"
+    },
+    {
+      "id": "スタースタースタート",
+      "title": "スタースタースタート",
+      "artist": "時乃空",
+      "chartPath": "songs/スタースタースタート/chart.json",
+      "audioPath": "songs/スタースタースタート/song.mp3",
+      "illustrationPath": "songs/スタースタースタート/illu.jpg"
     }
   ]
